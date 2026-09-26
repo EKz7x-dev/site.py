@@ -1,110 +1,317 @@
 # site.py
 
-import flet as ft
 
+           import flet as ft
+import json
+import os
+
+ARQUIVO = "alunos.json"
+
+
+# =========================
+# FUNÇÕES DE ARMAZENAMENTO
+# =========================
+
+def carregar_dados():
+    if os.path.exists(ARQUIVO):
+        with open(ARQUIVO, "r", encoding="utf-8") as arquivo:
+            return json.load(arquivo)
+    return []
+
+
+def salvar_dados():
+    with open(ARQUIVO, "w", encoding="utf-8") as arquivo:
+        json.dump(alunos, arquivo, ensure_ascii=False, indent=4)
+
+
+# Lista que armazena os alunos
+alunos = carregar_dados()
+
+
+# =========================
+# APLICATIVO
+# =========================
 
 def main(page: ft.Page):
-    page.title = "Demonstração de Componentes Flet (Aulas 3 a 6)"
+
+    page.title = "CRUD - Cadastro de Alunos"
     page.padding = 20
     page.scroll = ft.ScrollMode.AUTO
 
-    page.add(ft.Text("1. Exemplo: Checkbox", weight=ft.FontWeight.BOLD, size=18))
-
-    cb_man = ft.Checkbox(label="Homem", value=False)
-    cb_woman = ft.Checkbox(label="Mulher", value=True)
-    text_cb_result = ft.Text()
-
-    def button_cb_clicked(e):
-        if cb_man.value and not cb_woman.value:
-            text_cb_result.value = "Selecionado: Homem"
-        elif cb_woman.value and not cb_man.value:
-            text_cb_result.value = "Selecionado: Mulher"
-        elif cb_man.value and cb_woman.value:
-            text_cb_result.value = "Erro: Ambas as opções não podem ser selecionadas simultaneamente."
-        else:
-            text_cb_result.value = "Aviso: Nenhuma opção foi selecionada."
-        page.update()
-
-    btn_cb = ft.TextButton(text="Confirmar Seleção", on_click=button_cb_clicked)
-
-    page.add(cb_man, cb_woman, btn_cb, text_cb_result)
-    page.add(ft.Divider())
-
-    page.add(ft.Text("2. Exemplo: Radio Button", weight=ft.FontWeight.BOLD, size=18))
-
-    text_radio_result = ft.Text()
-
-    def radio_group_changed(e):
-        text_radio_result.value = f"Time selecionado: {radio_group.value}"
-        page.update()
-
-    radio_group = ft.RadioGroup(
-        content=ft.Column(
-            controls=[
-                ft.Radio(value="Real Madrid", label="Real Madrid", fill_color=ft.Colors.BLUE),
-                ft.Radio(value="Juventus", label="Juventus"),
-                ft.Radio(value="Arsenal", label="Arsenal"),
-            ]
-        ),
-        on_change=radio_group_changed,
+    # Campos do formulário
+    campo_nome = ft.TextField(
+        label="Nome",
+        width=300
     )
 
-    page.add(
-        ft.Text("Escolha seu time de futebol preferido:"),
-        radio_group,
-        text_radio_result,
+    campo_matricula = ft.TextField(
+        label="Matrícula",
+        width=200
     )
-    page.add(ft.Divider())
 
-    page.add(ft.Text("3. Exemplo: Switch", weight=ft.FontWeight.BOLD, size=18))
-
-    switch_football = ft.Switch(label="Futebol", value=False)
-    switch_basketball = ft.Switch(label="Basquete", value=True)
-    text_switch_result = ft.Text()
-
-    def button_switch_clicked(e):
-        if switch_football.value and not switch_basketball.value:
-            text_switch_result.value = "Esporte preferido selecionado: Futebol"
-        elif switch_basketball.value and not switch_football.value:
-            text_switch_result.value = "Esporte preferido selecionado: Basquete"
-        elif switch_football.value and switch_basketball.value:
-            text_switch_result.value = "Erro: Selecione apenas um esporte por vez."
-        else:
-            text_switch_result.value = "Aviso: Selecione pelo menos um esporte."
-        page.update()
-
-    btn_switch = ft.TextButton(text="Verificar Preferência", on_click=button_switch_clicked)
-
-    page.add(
-        switch_football,
-        switch_basketball,
-        btn_switch,
-        text_switch_result,
+    campo_curso = ft.TextField(
+        label="Curso",
+        width=300
     )
-    page.add(ft.Divider())
 
-    
-    page.add(ft.Text("4. Exemplo: Dropdown", weight=ft.FontWeight.BOLD, size=18))
+    mensagem = ft.Text()
 
-    text_dropdown_result = ft.Text()
+    # ID do aluno que está sendo editado
+    aluno_editando = None
 
-    def dropdown_changed(e):
-        text_dropdown_result.value = f"Opção selecionada no menu: {dd.value}"
-        page.update()
+    # =========================
+    # TABELA
+    # =========================
 
-    dd = ft.Dropdown(
-        hint_text="Escolha um clube",
-        width=200,
-        options=[
-            ft.dropdown.Option("Real Madrid"),
-            ft.dropdown.Option("Juventus"),
-            ft.dropdown.Option("Arsenal"),
+    tabela = ft.DataTable(
+        columns=[
+            ft.DataColumn(ft.Text("ID")),
+            ft.DataColumn(ft.Text("Nome")),
+            ft.DataColumn(ft.Text("Matrícula")),
+            ft.DataColumn(ft.Text("Curso")),
+            ft.DataColumn(ft.Text("Ações")),
         ],
-        on_change=dropdown_changed,
+        rows=[]
     )
 
-    page.add(dd, text_dropdown_result)
+    # =========================
+    # ATUALIZAR TABELA
+    # =========================
+
+    def atualizar_tabela():
+
+        tabela.rows.clear()
+
+        for aluno in alunos:
+
+            tabela.rows.append(
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(
+                            ft.Text(str(aluno["id"]))
+                        ),
+
+                        ft.DataCell(
+                            ft.Text(aluno["nome"])
+                        ),
+
+                        ft.DataCell(
+                            ft.Text(aluno["matricula"])
+                        ),
+
+                        ft.DataCell(
+                            ft.Text(aluno["curso"])
+                        ),
+
+                        ft.DataCell(
+                            ft.Row([
+                                ft.IconButton(
+                                    icon=ft.Icons.EDIT,
+                                    tooltip="Editar",
+                                    on_click=lambda e, a=aluno:
+                                        editar_aluno(a)
+                                ),
+
+                                ft.IconButton(
+                                    icon=ft.Icons.DELETE,
+                                    tooltip="Excluir",
+                                    icon_color=ft.Colors.RED,
+                                    on_click=lambda e, a=aluno:
+                                        excluir_aluno(a)
+                                )
+                            ])
+                        )
+                    ]
+                )
+            )
+
+        page.update()
+
+    # =========================
+    # CREATE
+    # =========================
+
+    def cadastrar_aluno(e):
+
+        nonlocal aluno_editando
+
+        nome = campo_nome.value.strip()
+        matricula = campo_matricula.value.strip()
+        curso = campo_curso.value.strip()
+
+        if nome == "" or matricula == "" or curso == "":
+            mensagem.value = "Preencha todos os campos."
+            mensagem.color = ft.Colors.RED
+            page.update()
+            return
+
+        # UPDATE
+        if aluno_editando is not None:
+
+            aluno_editando["nome"] = nome
+            aluno_editando["matricula"] = matricula
+            aluno_editando["curso"] = curso
+
+            mensagem.value = "Aluno atualizado com sucesso!"
+            mensagem.color = ft.Colors.GREEN
+
+            aluno_editando = None
+
+            botao_salvar.text = "Cadastrar aluno"
+
+        # CREATE
+        else:
+
+            novo_id = 1
+
+            if len(alunos) > 0:
+                novo_id = max(
+                    aluno["id"]
+                    for aluno in alunos
+                ) + 1
+
+            novo_aluno = {
+                "id": novo_id,
+                "nome": nome,
+                "matricula": matricula,
+                "curso": curso
+            }
+
+            alunos.append(novo_aluno)
+
+            mensagem.value = "Aluno cadastrado com sucesso!"
+            mensagem.color = ft.Colors.GREEN
+
+        salvar_dados()
+
+        limpar_campos()
+        atualizar_tabela()
+
+    # =========================
+    # READ
+    # =========================
+
+    # A leitura é realizada através
+    # da função atualizar_tabela()
+
+    # =========================
+    # UPDATE
+    # =========================
+
+    def editar_aluno(aluno):
+
+        nonlocal aluno_editando
+
+        aluno_editando = aluno
+
+        campo_nome.value = aluno["nome"]
+        campo_matricula.value = aluno["matricula"]
+        campo_curso.value = aluno["curso"]
+
+        botao_salvar.text = "Salvar alterações"
+
+        mensagem.value = "Editando aluno..."
+        mensagem.color = ft.Colors.BLUE
+
+        page.update()
+
+    # =========================
+    # DELETE
+    # =========================
+
+    def excluir_aluno(aluno):
+
+        alunos.remove(aluno)
+
+        salvar_dados()
+
+        mensagem.value = "Aluno excluído com sucesso!"
+        mensagem.color = ft.Colors.GREEN
+
+        atualizar_tabela()
+
+    # =========================
+    # LIMPAR CAMPOS
+    # =========================
+
+    def limpar_campos(e=None):
+
+        nonlocal aluno_editando
+
+        aluno_editando = None
+
+        campo_nome.value = ""
+        campo_matricula.value = ""
+        campo_curso.value = ""
+
+        botao_salvar.text = "Cadastrar aluno"
+
+        page.update()
+
+    # =========================
+    # BOTÕES
+    # =========================
+
+    botao_salvar = ft.ElevatedButton(
+        text="Cadastrar aluno",
+        icon=ft.Icons.ADD,
+        on_click=cadastrar_aluno
+    )
+
+    botao_limpar = ft.OutlinedButton(
+        text="Limpar",
+        icon=ft.Icons.CLEAR,
+        on_click=limpar_campos
+    )
+
+    # =========================
+    # INTERFACE
+    # =========================
+
+    page.add(
+
+        ft.Text(
+            "Sistema de Cadastro de Alunos",
+            size=30,
+            weight=ft.FontWeight.BOLD,
+            color=ft.Colors.BLUE
+        ),
+
+        ft.Text(
+            "CRUD utilizando Flet + Python + JSON",
+            size=16
+        ),
+
+        ft.Divider(),
+
+        ft.Row([
+            campo_nome,
+            campo_matricula,
+            campo_curso
+        ]),
+
+        ft.Row([
+            botao_salvar,
+            botao_limpar
+        ]),
+
+        mensagem,
+
+        ft.Divider(),
+
+        ft.Text(
+            "Alunos cadastrados",
+            size=22,
+            weight=ft.FontWeight.BOLD
+        ),
+
+        ft.Row(
+            [tabela],
+            scroll=ft.ScrollMode.AUTO
+        )
+    )
+
+    atualizar_tabela()
 
 
-if __name__ == "__main__":
-    ft.app(target=main)
+ft.app(target=main) 
